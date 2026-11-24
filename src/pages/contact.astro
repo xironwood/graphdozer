@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import { availabilityNotice, waitlist } from '../data/availability';
+---
+<BaseLayout title={waitlist.contactPageTitle}>
+  <article class="page reading">
+    <p class="eyebrow">Contact</p>
+    <h1>{waitlist.acceptingNewClients ? 'New client inquiries' : 'New client waitlist'}</h1>
+    <p class="lede">{availabilityNotice}</p>
+    <p>This notice is for demonstration only. Appointments and waitlist enrollment are unavailable through this sandbox.</p>
+    <a href="/insurance/">View insurance &amp; fees</a>
+  </article>
+</BaseLayout>

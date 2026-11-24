@@ -1,0 +1,44 @@
+---
+import { practice, telehealthBoundary } from '../data/practice';
+import { waitlist } from '../data/availability';
+
+const { domain, practiceName, clinician, hours, location, crisisDisclaimer } = practice;
+const id = (fragment: string) => new URL('/#' + fragment, domain).href;
+const graph = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'MedicalClinic',
+      '@id': id('practice'),
+      name: practiceName,
+      url: domain,
+      description: crisisDisclaimer,
+      address: { '@type': 'PostalAddress', addressLocality: location.city, addressRegion: location.state },
+      areaServed: location.telehealthStates.map((name) => ({ '@type': 'State', name })),
+      openingHours: hours.schemaHours,
+      isAcceptingNewPatients: waitlist.acceptingNewClients,
+      employee: { '@id': id('clinician') },
+      availableService: { '@id': id('therapy') },
+    },
+    {
+      '@type': 'Person',
+      '@id': id('clinician'),
+      name: clinician.name,
+      worksFor: { '@id': id('practice') },
+      hasCredential: {
+        '@type': 'EducationalOccupationalCredential',
+        credentialCategory: 'Sandbox test license',
+        identifier: clinician.licenseNumber,
+        validIn: { '@type': 'State', name: clinician.licenseState },
+      },
+    },
+    {
+      '@type': 'MedicalTherapy',
+      '@id': id('therapy'),
+      name: 'Individual and couples counseling (sandbox)',
+      description: telehealthBoundary,
+    },
+  ],
+};
+---
+<script type="application/ld+json" is:inline set:html={JSON.stringify(graph).replaceAll('<', '\\u003c')} />

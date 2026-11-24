@@ -1,0 +1,62 @@
+---
+import EntitySchema from './EntitySchema.astro';
+import { displayName, practice, telehealthBoundary } from '../data/practice';
+import '../styles/site.css';
+
+interface Props { title: string }
+const { title } = Astro.props;
+const { clinician } = practice;
+const links = [
+  { href: '/', label: 'Overview' },
+  { href: '/insurance/', label: 'Insurance & fees' },
+  { href: '/good-faith-estimate/', label: 'Good faith estimate' },
+  { href: '/faq/', label: 'FAQ' },
+  { href: '/contact/', label: 'Contact' },
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="canonical" href={new URL(Astro.url.pathname, practice.domain)} />
+    <EntitySchema />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="shell masthead">
+        <a class="brand" href="/">
+          {displayName}
+          {practice.isSandboxTestSite && <span class="sandbox-label">Sandbox</span>}
+        </a>
+        <nav aria-label="Main">
+          <ul>
+            {links.map(({ href, label }) => (
+              <li><a href={href} aria-current={Astro.url.pathname === href ? 'page' : undefined}>{label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main class="shell" id="main" tabindex="-1"><slot /></main>
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <div>
+          <h2>Sandbox clinician</h2>
+          <p><strong>{clinician.name}</strong><br />{clinician.licenseState} test license {clinician.licenseNumber}</p>
+          <a href={clinician.boardLookupUrl}>{clinician.licenseState} licensing board lookup</a>
+        </div>
+        <div>
+          <h2>Telehealth boundary</h2>
+          <p>{telehealthBoundary}</p>
+        </div>
+        <div>
+          <h2>Sandbox &amp; crisis resources</h2>
+          <p>{practice.crisisDisclaimer}</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import { formatFee, practice, siteTitle } from '../data/practice';
+
+const weeks = 12;
+const followUps = weeks - 1;
+const { intake, individual } = practice.pricing;
+const followUpCost = followUps * individual;
+const total = intake + followUpCost;
+---
+<BaseLayout title={`Good faith estimate | ${siteTitle}`}>
+  <article class="page reading">
+    <h1>Good faith estimate</h1>
+    <p class="lede">A {weeks}-week self-pay example</p>
+    <p>This example assumes one visit per week. The first visit is an intake, followed by {followUps} individual counseling sessions at the sandbox rates.</p>
+    <dl class="ledger estimate">
+      <div><dt>1 intake at {formatFee(intake)}</dt><dd>{formatFee(intake)}</dd></div>
+      <div><dt>{followUps} sessions at {formatFee(individual)} each</dt><dd>{formatFee(followUpCost)}</dd></div>
+      <div class="total"><dt>Estimated total</dt><dd>{formatFee(total)}</dd></div>
+    </dl>
+    <p>This illustration covers only the visits listed above. The total depends on the types and number of visits.</p>
+    <a href="/insurance/">View insurance &amp; fees</a>
+  </article>
+</BaseLayout>

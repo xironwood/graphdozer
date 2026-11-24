@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import insurance from '../data/insurance.generated.json';
+import { formatFee, practice, siteTitle } from '../data/practice';
+
+const { pricing } = practice;
+const rates = [
+  { label: 'Intake', fee: pricing.intake },
+  { label: 'Individual session', fee: pricing.individual },
+  { label: 'Couples session', fee: pricing.couples },
+  { label: `${pricing.consultationMinutes}-minute consultation`, fee: pricing.consultationFee },
+];
+---
+<BaseLayout title={`Insurance & fees | ${siteTitle}`}>
+  <article class="page">
+    <h1>Insurance &amp; fees</h1>
+    <div class="columns">
+      <section>
+        <h2>Insurance</h2>
+        {insurance.carriers.length ? (
+          <>
+            <p>The sandbox lists these carriers for individual therapy.</p>
+            <ul class="carriers">
+              {insurance.carriers.map(({ name, shortLabel }) => (
+                <li>{name}{shortLabel !== name && ` (${shortLabel})`}</li>
+              ))}
+            </ul>
+          </>
+        ) : <p>The sandbox lists no carriers for individual therapy.</p>}
+        <p>{insurance.couplesPolicy}</p>
+      </section>
+      <section>
+        <h2>Practice fees</h2>
+        <dl class="ledger">
+          {rates.map(({ label, fee }) => <div><dt>{label}</dt><dd>{formatFee(fee)}</dd></div>)}
+        </dl>
+        <a href="/good-faith-estimate/">See a 12-week estimate</a>
+      </section>
+    </div>
+  </article>
+</BaseLayout>

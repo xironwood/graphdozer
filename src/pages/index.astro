@@ -1,0 +1,29 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import { displayName, formatFee, practice, siteTitle } from '../data/practice';
+import { availabilityNotice, waitlist } from '../data/availability';
+
+const { hours, location, pricing } = practice;
+---
+<BaseLayout title={siteTitle}>
+  <div class="overview">
+    <section class="intro">
+      <p class="eyebrow">{location.city}, {location.state}</p>
+      <h1>{displayName}</h1>
+      <p class="lede">A solo therapy practice sandbox for individual and couples counseling.</p>
+      <p>{availabilityNotice}</p>
+      <a class="button" href="/contact/">{waitlist.ctaLabel}</a>
+    </section>
+    <aside class="practice-note" aria-labelledby="details-heading">
+      <h2 id="details-heading">Practice details</h2>
+      <dl>
+        <dt>Office hours</dt>
+        <dd>{hours.display}</dd>
+        <dt>Telehealth area</dt>
+        <dd>{location.telehealthStates.join(', ')} only</dd>
+        <dt>Consultation</dt>
+        <dd>{pricing.consultationMinutes} minutes · {formatFee(pricing.consultationFee)}</dd>
+      </dl>
+    </aside>
+  </div>
+</BaseLayout>

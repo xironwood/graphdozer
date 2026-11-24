@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import { formatFee, practice, siteTitle, telehealthBoundary } from '../data/practice';
+import { availabilityNotice, waitlist } from '../data/availability';
+---
+<BaseLayout title={`Frequently asked questions | ${siteTitle}`}>
+  <article class="page reading">
+    <h1>Frequently asked questions</h1>
+    <section class="answer">
+      <h2>Is the practice accepting new clients?</h2>
+      <p>{availabilityNotice} <a href="/contact/">{waitlist.ctaLabel}</a></p>
+    </section>
+    <section class="answer">
+      <h2>What is the late-cancellation fee?</h2>
+      <p>The sandbox fee for a late cancellation is {formatFee(practice.pricing.lateCancellationFee)}.</p>
+    </section>
+    <section class="answer">
+      <h2>Where is telehealth available?</h2>
+      <p>{telehealthBoundary}</p>
+    </section>
+  </article>
+</BaseLayout>
