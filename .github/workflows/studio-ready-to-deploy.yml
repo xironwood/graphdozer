@@ -1,0 +1,33 @@
+name: Graphdozer ready to deploy
+run-name: "Graphdozer ready to deploy (PR #${{ github.event.number }})"
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - practice-records/practices/graphdozer-sandbox/website-facts.json
+
+permissions: {}
+
+jobs:
+  ready:
+    if: >-
+      github.repository == 'xironwood/graphdozer' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'studio/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show the guarded release instructions
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          {
+            printf '## Graphdozer ready to deploy\n\n'
+            printf 'Studio PR #%s merged into `main` at `%s`.\n\n' "$PR_NUMBER" "$RELEASE_COMMIT"
+            printf '%s\n' '```bash' 'cd ~/code/sites/graphdozer' 'git pull --ff-only github main' 'site-ops deploy graphdozer --dry-run' '```'
+            printf '\n%s\n' 'Match the dry run’s source commit to the commit above. Run the reviewed command it prints, then type `deploy graphdozer` when prompted.'
+          } >> "$GITHUB_STEP_SUMMARY"
