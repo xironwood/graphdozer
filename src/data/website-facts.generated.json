@@ -11,14 +11,16 @@
   "location": {
     "city": "Cary",
     "state": "NC",
-    "telehealthStates": ["NC"]
+    "telehealthStates": [
+      "NC"
+    ]
   },
   "hours": {
     "display": "Monday–Thursday, 11 a.m.–6 p.m. Eastern",
     "schemaHours": "Mo-Th 11:00-18:00"
   },
   "pricing": {
-    "intake": 215,
+    "intake": 220,
     "individual": 175,
     "couples": 205,
     "lateCancellationFee": 100,
