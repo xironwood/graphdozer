@@ -1,0 +1,119 @@
+name: Graphdozer Studio intake
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: Approval receipt ID
+        required: true
+        type: string
+      payload:
+        description: Signed approval payload
+        required: true
+        type: string
+      signature:
+        description: Approval signature
+        required: true
+        type: string
+
+concurrency:
+  group: studio-intake-${{ inputs.id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  STUDIO_ID: ${{ inputs.id }}
+  STUDIO_RECEIPT: ${{ toJSON(inputs) }}
+  STUDIO_PUBLIC_KEY: ${{ vars.STUDIO_PUBLIC_KEY }}
+
+jobs:
+  prepare:
+    if: github.repository == 'xironwood/graphdozer' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      candidate: ${{ steps.proposal.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: npm ci
+      - name: Build and propose the approved edit
+        id: proposal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          base="$(git rev-parse HEAD)"
+          node practice-records/stage-studio-intake.mjs
+          branch="studio/$STUDIO_ID"
+          printf '%s' "$STUDIO_PUBLIC_KEY" > "$RUNNER_TEMP/studio-key.pem"
+          printf '%s' "$STUDIO_RECEIPT" > "$RUNNER_TEMP/studio-receipt.json"
+          if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+            candidate="$(git rev-parse "refs/remotes/origin/$branch")"
+          else
+            npm run build
+            git add practice-records/practices/graphdozer-sandbox/website-facts.json src/data/website-facts.generated.json public/llms.txt
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit \
+              -m 'Apply approved Graphdozer intake fee' -m "Studio-Approval: $STUDIO_ID"
+            candidate="$(git rev-parse HEAD)"
+          fi
+          node practice-records/studio-receipt.mjs "$RUNNER_TEMP/studio-key.pem" "$RUNNER_TEMP/studio-receipt.json" "$base" "$candidate"
+          if ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+            git push origin "$candidate:refs/heads/$branch"
+          fi
+          if [[ -z "$(gh pr list --state open --head "$branch" --base main --json number --jq '.[].number')" ]]; then
+            gh pr create --head "$branch" --base main --title 'Studio intake fee approval' \
+              --body "Studio approval $STUDIO_ID. Review the complete diff, then use the guarded site-ops release after merge."
+          fi
+          printf 'candidate=%s\n' "$candidate" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify the approved PR commit
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: npm ci
+      - name: Check Git objects from the trusted workflow
+        id: check
+        env:
+          CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+        shell: bash
+        run: |
+          [[ "$CANDIDATE" =~ ^[a-f0-9]{40}$ ]]
+          git fetch origin main
+          printf '%s' "$STUDIO_PUBLIC_KEY" > "$RUNNER_TEMP/studio-key.pem"
+          printf '%s' "$STUDIO_RECEIPT" > "$RUNNER_TEMP/studio-receipt.json"
+          node practice-records/studio-receipt.mjs "$RUNNER_TEMP/studio-key.pem" "$RUNNER_TEMP/studio-receipt.json" FETCH_HEAD "$CANDIDATE"
+      - name: Report the required status on the PR commit
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+          VERIFY_RESULT: ${{ steps.check.outcome }}
+        shell: bash
+        run: |
+          [[ "$CANDIDATE" =~ ^[a-f0-9]{40}$ ]]
+          state=failure
+          if [[ "$VERIFY_RESULT" == success ]]; then state=success; fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$CANDIDATE" \
+            -f context=verify-approval -f state="$state" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --silent

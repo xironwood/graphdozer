@@ -1,0 +1,268 @@
+---
+import { availabilityNotice } from '../data/availability';
+import { formatFee, practice } from '../data/practice';
+import factsText from '../data/website-facts.generated.json?raw';
+import insuranceText from '../data/insurance.generated.json?raw';
+import { studioVersion } from '../../practice-records/studio-draft.mjs';
+import {
+  availabilityLabel, carrierLabel, collections, days, estimate, fees, followUps,
+  hourLabel, hoursLine, live, liveDays, liveEnd, liveStart, times,
+} from '../studio/preview';
+import '../studio/studio.css';
+
+const { clinician, crisisDisclaimer } = practice;
+const { hours, insurance, pricing, waitlist } = live;
+const approvalVersion = studioVersion(factsText, insuranceText);
+const telehealthStates = practice.location.telehealthStates.map((state) => state === 'NC' ? 'North Carolina' : state);
+const publicRates = [
+  ...fees.slice(0, 3).map(({ key, label }) => ({
+    key, label: key === 'couples' ? `${label} · Private Pay` : label,
+  })),
+  { key: 'consultationFee', label: `${pricing.consultationMinutes}-min consultation` } as const,
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Graphdozer Practice Studio</title>
+  </head>
+  <body class="studio">
+    <a class="skip-link" href="#main">Skip to workspace</a>
+    <header class="studio-bar">
+      <div class="shell masthead">
+        <p class="studio-brand">Graphdozer Practice Studio</p>
+        <fieldset class="view-switch" id="studio-view" disabled>
+          <legend class="visually-hidden">Studio view</legend>
+          <label>
+            <input class="visually-hidden" type="radio" name="view" value="therapist" checked />
+            <span>Therapist View</span>
+          </label>
+          <label>
+            <input class="visually-hidden" type="radio" name="view" value="builder" />
+            <span>Builder View</span>
+          </label>
+        </fieldset>
+        <a class="public-link" href="/" target="_blank" rel="noopener">View Public Site <span aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
+      </div>
+    </header>
+
+    <main class="shell workspace" id="main" tabindex="-1">
+      <section aria-labelledby="open-studio-title">
+        <div class="zone-heading">
+          <h1 id="open-studio-title">The Open <em>Studio</em></h1>
+          <button id="reset-studio" class="action" type="button" disabled>Reset All to Live Site</button>
+        </div>
+        <noscript><p class="hint">Enable JavaScript to edit and preview practice changes.</p></noscript>
+
+        <div class="studio-grid">
+          <fieldset class="editors" id="studio-editors" disabled>
+            <legend class="visually-hidden">Editable practice details</legend>
+
+            <section class="panel editor" aria-labelledby="waitlist-title">
+              <h2 class="card-heading coral" id="waitlist-title">{collections.waitlist}</h2>
+              <div class="card-body">
+                <label class="books-switch">
+                  <input id="accepting-clients" class="visually-hidden" type="checkbox" role="switch" checked={waitlist.acceptingNewClients} />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="visually-hidden">Accepting new clients</span>
+                  <span id="books-state" class:list={['pill', waitlist.acceptingNewClients ? 'mint' : 'gold']} aria-hidden="true">
+                    {availabilityLabel(waitlist.acceptingNewClients)}
+                  </span>
+                </label>
+                <label class="field" for="studio-cta">Contact button label
+                  <input id="studio-cta" type="text" value={waitlist.ctaLabel} required />
+                </label>
+                <p class="field-error" id="cta-error" role="status"></p>
+              </div>
+            </section>
+
+            <section class="panel editor" aria-labelledby="hours-title">
+              <h2 class="card-heading gold" id="hours-title">{collections.hours}</h2>
+              <div class="card-body">
+                <fieldset class="day-group">
+                  <legend>Days open</legend>
+                  <div class="days">
+                    {days.map(({ short, label }, index) => (
+                      <label title={label}>
+                        <input class="visually-hidden" type="checkbox" name="day" checked={liveDays[index]} />
+                        <span>{short}<span class="visually-hidden">{label.slice(short.length)}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div class="time-fields">
+                  <label class="field" for="studio-start">Opens
+                    <select id="studio-start">
+                      {times.map((time) => <option value={time} selected={time === liveStart}>{hourLabel(time, true)}</option>)}
+                    </select>
+                  </label>
+                  <label class="field" for="studio-end">Closes
+                    <select id="studio-end">
+                      {times.map((time) => <option value={time} selected={time === liveEnd}>{hourLabel(time, true)}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p class="hint">Eastern time</p>
+                <p class="field-error" id="hours-error" role="status"></p>
+              </div>
+            </section>
+
+            <section class="panel editor" aria-labelledby="fees-title">
+              <h2 class="card-heading mint" id="fees-title">{collections.pricing}</h2>
+              <div class="card-body fee-list">
+                {fees.map(({ key, label }) => (
+                  <div class="fee-row">
+                    <label for={`studio-${key}`}>{label}{key === 'couples' && <small> · Private Pay</small>}</label>
+                    <div class="stepper">
+                      <button type="button" data-step="-5" aria-label={`Subtract $5 from ${label}`}>−$5</button>
+                      <div class="amount">
+                        <span aria-hidden="true">$</span>
+                        <input id={`studio-${key}`} type="number" inputmode="numeric" min="0" max="500" step="5"
+                          value={pricing[key]} required aria-describedby="fee-hint" />
+                      </div>
+                      <button type="button" data-step="5" aria-label={`Add $5 to ${label}`}>+$5</button>
+                    </div>
+                    <small class="field-error" id={`error-${key}`} role="status"></small>
+                  </div>
+                ))}
+                <p class="hint" id="fee-hint">Fees range from $0 to $500.</p>
+                <p class="consultation">{pricing.consultationMinutes}-min consultation <strong>{pricing.consultationFee === 0 ? 'Free ($0)' : formatFee(pricing.consultationFee)}</strong></p>
+              </div>
+            </section>
+
+            <section class="panel editor" aria-labelledby="insurance-title">
+              <h2 class="card-heading cobalt" id="insurance-title">{collections.insurance}</h2>
+              <div class="card-body">
+                <ul class="chips" id="carrier-chips">
+                  {insurance.carriers.map(({ name }, index) => (
+                    <li class="chip">
+                      <span>{name}</span>
+                      <button type="button" data-carrier-index={index} aria-label={`Remove ${name}`}>×</button>
+                    </li>
+                  ))}
+                </ul>
+                <p class="hint" id="no-carriers" hidden={insurance.carriers.length > 0}>No active panels</p>
+                <form id="carrier-form">
+                  <label class="field" for="carrier-name">Carrier name</label>
+                  <div class="add-panel">
+                    <input id="carrier-name" type="text" required />
+                    <button class="action" type="submit">Add Panel</button>
+                  </div>
+                  <p class="field-error" id="carrier-error" role="status"></p>
+                </form>
+                <p class="lock-note"><strong>Locked</strong> Couples therapy remains private pay.</p>
+              </div>
+            </section>
+          </fieldset>
+
+          <section class="panel receipt" aria-labelledby="receipt-title">
+            <header class="card-heading receipt-heading">
+              <h2 id="receipt-title">Live Ripple Receipt</h2>
+              <span class="pill" id="receipt-state" role="status">Live values</span>
+            </header>
+            <div class="receipt-body">
+              <section class="receipt-item" data-ripple="waitlist">
+                <header><h3>Waitlist Ripple</h3><span class="pill changed" hidden>CHANGED</span></header>
+                <dl class="receipt-list">
+                  <dt>Sitewide banner state</dt><dd id="ripple-availability">{availabilityNotice}</dd>
+                  <dt>Contact page title</dt><dd id="ripple-contact">{waitlist.contactPageTitle}</dd>
+                  <dt>Contact button</dt><dd id="ripple-cta">{waitlist.ctaLabel}</dd>
+                </dl>
+              </section>
+              <section class="receipt-item" data-ripple="hours">
+                <header><h3>Hours Ripple</h3><span class="pill changed" hidden>CHANGED</span></header>
+                <dl class="receipt-list">
+                  <dt>Display hours</dt><dd id="ripple-hours">{hours.display}</dd>
+                  <dt>Search listing hours <span data-builder hidden>(EntitySchema)</span></dt><dd id="ripple-schema">{hours.schemaHours}</dd>
+                  <dt>Practice summary <span data-builder hidden>(public/llms.txt)</span></dt><dd id="ripple-summary">{hoursLine(hours.display)}</dd>
+                </dl>
+              </section>
+              <section class="receipt-item" data-ripple="pricing">
+                <header><h3>Fees Ripple</h3><span class="pill changed" hidden>CHANGED</span></header>
+                <table class="rate-list">
+                  <caption>Public rate table</caption>
+                  <tbody>
+                    {publicRates.map(({ key, label }) => (
+                      <tr><th scope="row">{label}</th><td data-rate={key}>{formatFee(pricing[key])}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+                <h4>12-week Good Faith Estimate</h4>
+                <p>1 intake + {followUps} individual = <strong id="ripple-estimate">{formatFee(estimate(pricing))}</strong></p>
+                <p class="pill gold" id="ripple-delta">$0 vs. live site</p>
+                <h4>FAQ late-cancellation policy</h4>
+                <p>The sandbox fee for a late cancellation is <span id="ripple-late-fee">{formatFee(pricing.lateCancellationFee)}</span>.</p>
+              </section>
+              <section class="receipt-item" data-ripple="insurance">
+                <header><h3>Insurance Ripple</h3><span class="pill changed" hidden>CHANGED</span></header>
+                <h4>Active carriers <a href="/insurance/">on the insurance page</a></h4>
+                <p class="hint">Individual therapy only</p>
+                <ul id="ripple-carriers">
+                  {insurance.carriers.map((carrier) => <li>{carrierLabel(carrier)}</li>)}
+                </ul>
+                <p class="hint" id="ripple-no-carriers" hidden={insurance.carriers.length > 0}>No active panels</p>
+              </section>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel handoff" id="change-slip" aria-labelledby="change-slip-title">
+          <h2 class="card-heading gold" id="change-slip-title">Change Slip</h2>
+          <div class="card-body">
+            <p id="empty-slip">Edit a collection to see what will change.</p>
+            <div id="slip-changes"></div>
+            <div class="form-actions">
+              <button id="stamp-preview" class="stamp" type="button" data-version={approvalVersion} disabled>Preview Ready to Publish</button>
+              <p id="stamp-status" class="hint" role="status"></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel handoff" data-builder aria-labelledby="builder-title" hidden>
+          <h2 class="card-heading cobalt" id="builder-title">Builder Output</h2>
+          <div class="card-body">
+            <div class="code-grid">
+              <section><h3 id="facts-label">website-facts.json</h3><pre tabindex="0" aria-labelledby="facts-label"><code id="facts-snippet"></code></pre></section>
+              <section><h3 id="insurance-label">insurance.json</h3><pre tabindex="0" aria-labelledby="insurance-label"><code id="insurance-snippet"></code></pre></section>
+            </div>
+            <label class="field" for="studio-prompt">Managed Agent prompt
+              <textarea id="studio-prompt" rows="9" readonly></textarea>
+            </label>
+            <div class="form-actions">
+              <button id="copy-prompt" class="action primary" type="button" command="--copy" commandfor="studio-prompt" disabled>Copy Update Prompt</button>
+              <p id="copy-status" class="hint" role="status"></p>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="vault" aria-labelledby="vault-title">
+        <h2 id="vault-title">The Vault</h2>
+        <div class="vault-grid">
+          <section class="panel vault-card">
+            <span class="pill cobalt">Locked</span>
+            <h3>Licensure &amp; Telehealth Boundary</h3>
+            <p><strong>{clinician.name}</strong> · {clinician.licenseNumber} (test license)</p>
+            <p>{telehealthStates.join(', ')} only</p>
+          </section>
+          <section class="panel vault-card">
+            <span class="pill gold">Locked</span>
+            <h3>Clinical Safety &amp; Crisis Resources</h3>
+            <p>{crisisDisclaimer}</p>
+          </section>
+          <section class="panel vault-card">
+            <span class="pill mint">Locked</span>
+            <h3>HIPAA Privacy Locks</h3>
+            <p>Zero third-party ad or analytics pixels.</p>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script>
+      import '../studio/editor';
+    </script>
+  </body>
+</html>

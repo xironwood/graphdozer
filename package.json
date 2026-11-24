@@ -6,6 +6,8 @@
   "scripts": {
     "sync": "node practice-records/sync-and-check.mjs",
     "build": "npm run sync && astro build",
+    "studio:apply": "node practice-records/apply-studio-draft.mjs",
+    "studio:serve": "node practice-records/serve-studio.mjs",
     "dev": "npm run sync && astro dev",
     "preview": "astro preview"
   },
