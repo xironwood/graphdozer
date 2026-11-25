@@ -26,13 +26,17 @@ test('hosted Studio protects the page and dispatches an exact signed intake appr
   const warning = t.mock.method(console, 'warn', () => {});
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     if (url.endsWith('/git/ref/heads/main')) {
+      assert.equal(options.headers.Authorization, 'Bearer ' + env.STUDIO_GITHUB_TOKEN);
       if (rateLimitMain) {
         return new Response('GitHub response details', { status: 403, headers: { 'x-ratelimit-remaining': '0' } });
       }
       return Response.json({ object: { sha } });
     }
-    if (url.endsWith(`/${sha}/${factsPath}`)) return new Response(records.factsText);
-    if (url.endsWith(`/${sha}/${insurancePath}`)) return new Response(records.insuranceText);
+    if (url.startsWith('https://raw.githubusercontent.com/')) {
+      assert.equal(new Headers(options.headers).has('Authorization'), false);
+      if (url.endsWith(`/${sha}/${factsPath}`)) return new Response(records.factsText);
+      if (url.endsWith(`/${sha}/${insurancePath}`)) return new Response(records.insuranceText);
+    }
     assert.ok(url.endsWith('/actions/workflows/studio-intake.yml/dispatches'));
     assert.equal(options.headers.Authorization, 'Bearer ' + env.STUDIO_GITHUB_TOKEN);
     dispatches.push(JSON.parse(options.body));

@@ -64,8 +64,9 @@ async function approvedDraft(request, env) {
     return reply(422, { error: 'The hosted pilot accepts one change to the intake fee. Keep the other fields at their live values.' });
   }
 
+  const authenticatedHeaders = { ...githubHeaders, Authorization: 'Bearer ' + env.STUDIO_GITHUB_TOKEN };
   const upstream = await githubRequest('read main', github + '/git/ref/heads/main', {
-    headers: githubHeaders, redirect: 'manual', cache: 'no-store',
+    headers: authenticatedHeaders, redirect: 'manual', cache: 'no-store',
   });
   const base = (await upstream.json()).object?.sha;
   if (!/^[a-f0-9]{40}$/.test(base)) throw new ApprovalStepError('read main: invalid commit');
@@ -92,7 +93,7 @@ async function approvedDraft(request, env) {
   const signature = await crypto.subtle.sign('Ed25519', signer, payload);
   await githubRequest('dispatch approval', github + '/actions/workflows/studio-intake.yml/dispatches', {
     method: 'POST',
-    headers: { ...githubHeaders, Authorization: 'Bearer ' + env.STUDIO_GITHUB_TOKEN, 'Content-Type': 'application/json' },
+    headers: { ...authenticatedHeaders, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ref: 'main', inputs: { id, payload: base64url(payload), signature: base64url(signature) } }),
     redirect: 'manual',
   });
