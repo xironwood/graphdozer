@@ -22,8 +22,15 @@ test('hosted Studio protects the page and dispatches an exact signed intake appr
   const draft = { version, changes: { pricing: { intake } } };
   const sha = 'a'.repeat(40);
   const dispatches = [];
+  let rateLimitMain = false;
+  const warning = t.mock.method(console, 'warn', () => {});
   t.mock.method(globalThis, 'fetch', async (url, options) => {
-    if (url.endsWith('/git/ref/heads/main')) return Response.json({ object: { sha } });
+    if (url.endsWith('/git/ref/heads/main')) {
+      if (rateLimitMain) {
+        return new Response('GitHub response details', { status: 403, headers: { 'x-ratelimit-remaining': '0' } });
+      }
+      return Response.json({ object: { sha } });
+    }
     if (url.endsWith(`/${sha}/${factsPath}`)) return new Response(records.factsText);
     if (url.endsWith(`/${sha}/${insurancePath}`)) return new Response(records.insuranceText);
     assert.ok(url.endsWith('/actions/workflows/studio-intake.yml/dispatches'));
@@ -46,6 +53,16 @@ test('hosted Studio protects the page and dispatches an exact signed intake appr
   assert.equal((await stamp({ ...draft, version: '0'.repeat(64) })).status, 409);
   assert.equal((await stamp({ ...draft, changes: { ...draft.changes, practiceName: 'Different Practice' } })).status, 422);
   assert.equal(dispatches.length, 0);
+
+  rateLimitMain = true;
+  const unavailable = await stamp(draft);
+  assert.equal(unavailable.status, 502);
+  assert.match((await unavailable.json()).error, /Your draft is still open/);
+  assert.deepEqual(warning.mock.calls.map(({ arguments: args }) => args), [
+    ['Studio approval failed: read main: HTTP 403 (rate limit)'],
+  ]);
+  assert.equal(dispatches.length, 0);
+  rateLimitMain = false;
 
   const first = await stamp(draft);
   assert.equal(first.status, 202);

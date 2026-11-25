@@ -8,8 +8,24 @@ const github = 'https://api.github.com/repos/' + repository;
 const githubHeaders = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'Graphdozer-Studio' };
 const encoder = new TextEncoder();
 
+class ApprovalStepError extends Error {}
+
 function reply(status, body, headers = {}) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
+}
+
+async function githubRequest(step, url, options) {
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch {
+    throw new ApprovalStepError(`${step}: network error`);
+  }
+  if (response.ok) return response;
+
+  const rateLimited = response.status === 429 || response.headers.get('x-ratelimit-remaining') === '0';
+  const detail = rateLimited ? ' (rate limit)' : '';
+  throw new ApprovalStepError(`${step}: HTTP ${response.status}${detail}`);
 }
 
 function digest(text) {
@@ -48,16 +64,19 @@ async function approvedDraft(request, env) {
     return reply(422, { error: 'The hosted pilot accepts one change to the intake fee. Keep the other fields at their live values.' });
   }
 
-  const upstream = await fetch(github + '/git/ref/heads/main', { headers: githubHeaders, redirect: 'manual', cache: 'no-store' });
-  if (!upstream.ok) throw new Error('GitHub source is unavailable.');
-  const base = (await upstream.json()).object.sha;
-  if (!/^[a-f0-9]{40}$/.test(base)) throw new Error('Invalid GitHub source version.');
-  const getRecord = async (path) => {
-    const response = await fetch(`https://raw.githubusercontent.com/${repository}/${base}/${path}`, { redirect: 'manual' });
-    if (!response.ok) throw new Error('GitHub record is unavailable.');
+  const upstream = await githubRequest('read main', github + '/git/ref/heads/main', {
+    headers: githubHeaders, redirect: 'manual', cache: 'no-store',
+  });
+  const base = (await upstream.json()).object?.sha;
+  if (!/^[a-f0-9]{40}$/.test(base)) throw new ApprovalStepError('read main: invalid commit');
+  const getRecord = async (step, path) => {
+    const response = await githubRequest(step, `https://raw.githubusercontent.com/${repository}/${base}/${path}`, { redirect: 'manual' });
     return response.text();
   };
-  const [facts, insurance] = await Promise.all([getRecord(factsPath), getRecord(insurancePath)]);
+  const [facts, insurance] = await Promise.all([
+    getRecord('read practice facts', factsPath),
+    getRecord('read insurance', insurancePath),
+  ]);
   const version = hex(await digest(facts + '\0' + insurance));
   if (draft.version !== version) return reply(409, { error: 'The records changed. Reopen Studio after the current release is live.' });
   const previous = JSON.parse(facts).pricing.intake;
@@ -71,13 +90,12 @@ async function approvedDraft(request, env) {
   const pem = env.STUDIO_SIGNING_KEY.replace(/-----[^-]+-----|\s/g, '');
   const signer = await crypto.subtle.importKey('pkcs8', Uint8Array.from(atob(pem), (character) => character.charCodeAt(0)), 'Ed25519', false, ['sign']);
   const signature = await crypto.subtle.sign('Ed25519', signer, payload);
-  const dispatch = await fetch(github + '/actions/workflows/studio-intake.yml/dispatches', {
+  await githubRequest('dispatch approval', github + '/actions/workflows/studio-intake.yml/dispatches', {
     method: 'POST',
     headers: { ...githubHeaders, Authorization: 'Bearer ' + env.STUDIO_GITHUB_TOKEN, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ref: 'main', inputs: { id, payload: base64url(payload), signature: base64url(signature) } }),
     redirect: 'manual',
   });
-  if (!dispatch.ok) throw new Error('GitHub did not accept the approval.');
   return reply(202, { id, status: 'queued' });
 }
 
@@ -92,7 +110,11 @@ export async function onRequest({ request, env, next }) {
   }
   if (url.pathname === approvalPath && request.method === 'POST') {
     try { return await approvedDraft(request, env); }
-    catch { return reply(502, { error: 'GitHub could not receive the approval. Your draft is still open.' }); }
+    catch (error) {
+      const detail = error instanceof ApprovalStepError ? error.message : 'unexpected approval error';
+      console.warn(`Studio approval failed: ${detail}`);
+      return reply(502, { error: 'GitHub could not receive the approval. Your draft is still open.' });
+    }
   }
   if (!['/studio', '/studio/'].includes(url.pathname) || !['GET', 'HEAD'].includes(request.method)) {
     return reply(404, { error: 'Studio page not found.' });
